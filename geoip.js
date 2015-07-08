@@ -72,14 +72,14 @@ function iplong(ip) {
  */
 function find(ipl) {
 
-    var mpi = 0;
-    var n = midpoints[0];
-    var step;
-    var current;
-    var next;
-    var prev;
-    var nn;
-    var pn;
+    var mpi = 0,
+        n = midpoints[0],
+        step,
+        current,
+        next,
+        prev,
+        nn,
+        pn;
     
     while(true) {
 
@@ -93,35 +93,23 @@ function find(ipl) {
         prev = pn > -1 ? countries[pn] : null;
         
 		// take another step?
-        if(step > 0) {
-
-            if(!next || next.ipstart < ipl) {
-                n += step;
-            } else {
-                n -= step;
+        if (step) {
+            if (next && next.ipstart <= ipl) {
+                n = Math.min(n + step, numcountries - 1);
+                continue;
+            } else if (prev && current.ipstart > ipl) {
+                n = Math.max(n - step, 0);
+                continue;
             }
-
-            continue;
         }
 
-        // we're either current, next or previous depending on which is closest to ipl
-        var cd = Math.abs(ipl - current.ipstart);
-        var nd = next && next.ipstart< ipl ? ipl - next.ipstart : 1000000000;
-        var pd = prev && prev.ipstart < ipl ? ipl - prev.ipstart : 1000000000;
-
-        // current wins
-        if(cd < nd && cd < pd) {
-            return current;
-        }
-
-         // next wins
-        if(nd < cd && nd < pd) {
+        if (current.ipstart > ipl) {
+            return prev;
+        } else if (next && next.ipstart <= ipl) {
             return next;
-
         }
 
-        // prev wins
-        return prev;
+        return current;
     }
 }
 
@@ -132,13 +120,13 @@ function find(ipl) {
 */
 (function() {
 
-    var fs = require("fs");
-    var sys = require("sys");
-    var stream = fs.createReadStream(__dirname + "/GeoIPCountryWhois.csv");
-    var buffer = "";
+    var fs = require("fs"),
+        sys = require("sys"),
+        stream = fs.createReadStream(__dirname + "/GeoIPCountryWhois.csv"),
+        buffer = "";
 
     stream.addListener("data", function(data) {
-        buffer += data.toString().replace(/"/g, "");
+        buffer += data;
     });
 
     stream.addListener("end", function() {
@@ -146,20 +134,22 @@ function find(ipl) {
         var entries = buffer.split("\n");
 
         for(var i=0; i<entries.length; i++) {
-            var entry = entries[i].split(",");
-            countries.push({ipstart: parseInt(entry[2]), code: entry[4], name: entry[5]});
+            var entry = entries[i].replace(/^"(.*)"$/, "$1").split('","');
+
+            if (entry.length === 6) {
+                countries.push({ipstart: parseInt(entry[2], 10), code: entry[4], name: entry[5]});
+            }
         }
 
         countries.sort(function(a, b) {
             return a.ipstart - b.ipstart;
         });
 
-        var n = Math.floor(countries.length / 2);
-        while(n >= 1) {
-            n = Math.floor(n / 2);
+        var n = countries.length;
+        while(n > 1) {
+            n = Math.ceil(n / 2);
             midpoints.push(n);
         }
-
         numcountries = countries.length;
 		geoip.ready = true;
     });
